@@ -1,0 +1,60 @@
+version: '3'
+
+services:
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - gold-scheme-network
+
+  user-service:
+    build: ./user-service
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - MONGO_URI=mongodb://mongo:27017/gold-scheme-users
+      - JWT_SECRET=your_jwt_secret_key
+      - JWT_EXPIRES_IN=90d
+    depends_on:
+      - mongo
+    networks:
+      - gold-scheme-network
+
+  gold-scheme-service:
+    build: ./gold-scheme-service
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - MONGO_URI=mongodb://mongo:27017/gold-scheme-schemes
+      - USER_SERVICE_URL=http://user-service:3001/api/users
+    depends_on:
+      - mongo
+      - user-service
+    networks:
+      - gold-scheme-network
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - USER_SERVICE_URL=http://user-service:3001
+      - GOLD_SCHEME_SERVICE_URL=http://gold-scheme-service:3002
+    depends_on:
+      - user-service
+      - gold-scheme-service
+    networks:
+      - gold-scheme-network
+
+networks:
+  gold-scheme-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
